@@ -27,6 +27,11 @@ def get_current_user(
     try:
         # try decoding the jwt
         payload = decode_token(token)
+        if payload.get("type") != "access":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Access Token!",
+            )
         username: str | None = payload.get("sub")
 
         # check if user is none

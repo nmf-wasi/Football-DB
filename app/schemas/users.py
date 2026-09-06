@@ -38,6 +38,28 @@ class UserResponse(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserUpdate(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    username: str | None = None
+    birth_date: date | None = None
+    phone_number: str | None = None
+    email: EmailStr
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, username: str) -> str:
+        if len(username) < 3:
+            raise ValueError("Username must be at least 3 characters!")
+        return username
+
+    @field_validator("birth_date")
+    @classmethod
+    def validate_birthdate(cls, birth_date: date) -> date | None:
+        if birth_date and birth_date > date.today():
+            raise ValueError("Future dates aren't allowed!")
+        return birth_date
+
 class LoginResponse(BaseModel):
     access_token: str
     refresh_token: str
