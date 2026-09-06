@@ -64,4 +64,4 @@ def require_role(*allowed_roles: UserRole):
     return role_checker
 
 
-# *allowed_roles -> u cna send multiple roles while calling the func
+# *allowed_roles -> u can send multiple roles while calling the func

@@ -1,15 +1,19 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordRequestForm
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
 from app.models.user import User
-
-from app.schemas.users import UserCreate, UserResponse, LoginResponse
+from app.schemas.users import UserCreate, UserResponse, LoginResponse, RefreshRequest
 from app.security.password import hash_password, verify_password
 from app.security.token import create_access_token, create_refresh_token
+from app.dependency import get_current_user
+from app.security.token import decode_token
+
 from datetime import datetime
+from jose import JWTError
 
 router = APIRouter()
 
@@ -75,5 +79,47 @@ def login(
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
+    }
+
+
+@router.get("/me", response_model=UserResponse)
+def me(current_user: User = Depends(get_current_user)):
+    """The dependency returns the current user and it returns that user"""
+    return current_user
+
+
+@router.post("/refresh", response_model=LoginResponse)
+def refresh_access_token(request: RefreshRequest, db: Session = Depends(get_db)):
+    """take the old refresh token, check if the user exists from payload and return new access and refresh tokens"""
+    try:
+        # find the username from payload and find user with it
+        payload = decode_token(request.refresh_token)
+        username: str | None = payload.get("sub")
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Refresh Token!",
+            )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Refresh Token!",
+        )
+
+    user = db.execute(
+        select(User).where(User.username == username)
+    ).scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User Not Found!",
+        )
+
+    new_access_token = create_access_token({"sub": username})
+    new_refresh_token = create_refresh_token({"sub": username})
+
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
     }
 

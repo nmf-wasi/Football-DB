@@ -16,7 +16,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema for creating User"""
 
-    password:str
+    password: str
 
     @field_validator("username")
     @classmethod
@@ -34,12 +34,16 @@ class UserCreate(UserBase):
 
 
 class UserResponse(UserBase):
-    id:int
-    model_config=ConfigDict(from_attributes=True)
-
-
+    id: int
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoginResponse(BaseModel):
-    access_token:str
-    refresh_token:str
+    access_token: str
+    refresh_token: str
+
+
+class RefreshRequest(BaseModel):
+    """Take the old refresh token as input when user tries to get a new access token"""
+
+    refresh_token: str
