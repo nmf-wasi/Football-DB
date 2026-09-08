@@ -32,8 +32,10 @@ class LeagueResponse(LeagueBase):
 class TeamBase(BaseModel):
     team_long_name: str
     team_short_name: str
-    team_api_id: int
+    team_api_id: int # CHECK IF U CAN MAKE THIS NULLABLE, DONT TRUST THE DATASET, USE BRAIN TO IDENTIFY THE CLASS AND IF IT'S NULABLE OR NOT
     team_fifa_api_id: float | None
+    # CHECK IF U CAN MAKE THIS NULLABLE, DONT TRUST THE DATASET, USE BRAIN TO IDENTIFY THE CLASS AND IF IT'S NULABLE OR NOT
+
 
 
 class TeamResponse(TeamBase):
@@ -132,7 +134,7 @@ class MatchBase(BaseModel):
     match_api_id: int | None
     home_team_api_id: (
         int | None
-    )  # make these sccrollable,  select from the scrool, not just pass a value
+    )  # make these scrollable,  select from the scroll, not just pass a value
     away_team_api_id: int | None
 
 
@@ -142,3 +144,6 @@ class MatchResponse(MatchBase):
     away_team: TeamBase
     home_team_goal: int | None = None
     away_team_goal: int | None = None
+
+class MatchCreate(MatchBase):
+    pass
