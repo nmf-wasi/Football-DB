@@ -12,6 +12,7 @@ class Country(Base):
     __tablename__ = "countries"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False)
+    leagues: Mapped[list["League"]] = relationship(back_populates="country")
 
 
 class League(Base):
@@ -45,6 +46,7 @@ class Team(Base):
     away_matches: Mapped[list["Match"]] = relationship(
         foreign_keys="Match.away_team_api_id", back_populates="away_team"
     )
+    slug: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
 
 
 class TeamAttributes(Base):
@@ -61,7 +63,7 @@ class TeamAttributes(Base):
     team: Mapped[Team] = relationship(back_populates="team_attributes")
     creation_date: Mapped[datetime | None] = mapped_column(nullable=True)
     buildUpPlaySpeed: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    buildUpPlayDribbling: Mapped[float | None] = mapped_column(Integer, nullable=True)
+    buildUpPlayDribbling: Mapped[float | None] = mapped_column(Float, nullable=True)
     buildUpPlayPassing: Mapped[int | None] = mapped_column(Integer, nullable=True)
     buildUpPlayPositioningClass: Mapped[str] = mapped_column(String, nullable=True)
     chanceCreationPassing: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -90,6 +92,7 @@ class Player(Base):
     height: Mapped[float | None] = mapped_column(Float, nullable=True)
     weight: Mapped[float | None] = mapped_column(Float, nullable=True)
     attributes: Mapped[list["PlayerAttributes"]] = relationship(back_populates="player")
+    slug: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
 
 
 class PlayerAttributes(Base):
@@ -106,9 +109,9 @@ class PlayerAttributes(Base):
     creation_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     overall_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
     potential: Mapped[float | None] = mapped_column(Float, nullable=True)
-    preferred_foot: Mapped[str] = mapped_column(String, nullable=False)
-    attacking_work_rate: Mapped[str] = mapped_column(String, nullable=False)
-    defensive_work_rate: Mapped[str] = mapped_column(String, nullable=False)
+    preferred_foot: Mapped[str | None] = mapped_column(String, nullable=True)
+    attacking_work_rate: Mapped[str | None] = mapped_column(String, nullable=True)
+    defensive_work_rate: Mapped[str | None] = mapped_column(String, nullable=True)
     sprint_speed: Mapped[float | None] = mapped_column(Float, nullable=True)
     finishing: Mapped[float | None] = mapped_column(Float, nullable=True)
     short_passing: Mapped[float | None] = mapped_column(Float, nullable=True)

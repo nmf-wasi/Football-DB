@@ -43,7 +43,7 @@ class TeamResponse(TeamBase):
     team_attributes: list["TeamAttributesBase"]
     home_matches: list["MatchBase"]
     away_matches: list["MatchBase"]
-
+    slug:str
 
 class TeamCreate(TeamBase):
     pass
@@ -90,6 +90,7 @@ class PlayerCreate(PlayerBase):
 class PlayerResponse(PlayerBase):
     id: int
     attributes: list["PlayerAttributesBase"]
+    slug:str
 
 
 class PlayerAttributesBase(BaseModel):
