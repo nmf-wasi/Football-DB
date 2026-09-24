@@ -3,7 +3,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette import status
 from app.config.settings import settings
-
+import  os
 redis_client = redis.Redis(host=settings.REDIS_HOST, port=6379, db=0)
 
 RATE_LIMIT = 10
@@ -11,6 +11,9 @@ TIME_WINDOW = 60  # secs
 
 
 async def rate_limitter(request: Request, call_next):
+    if os.getenv("TESTING")=="TRUE":
+        return await call_next(request)
+    
     ip = request.client.host if request.client else "unknown"
     key = f"rate_limit: {ip}"
     current = await redis_client.incr(key)
