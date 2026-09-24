@@ -24,7 +24,7 @@ def get_leagues(
     sort_by: LeagueSortField = LeagueSortField.NAME,
     order_by: SortOrder = SortOrder.ASC,
     country_id: int | None = Query(None),
-    search:str=Query(None, min_length=1, max_length=24),
+    search:str|None=Query(None, min_length=1, max_length=24),
     db: Session = Depends(get_db),
 ):
     # get sort and order by val

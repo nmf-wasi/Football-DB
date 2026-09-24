@@ -39,12 +39,12 @@ def get_players(
     filters = []
     # search
     if search is not None:
-        filters.append(Player.player_name.ilike("%{search}%"))
+        filters.append(Player.player_name.ilike(f"%{search}%"))
 
     # apply filters
     queryset = queryset.where(*filters)
     count_queryset = count_queryset.where(*filters)
-    
+
     # sort
     queryset = queryset.order_by(order_func(sort_column))
 

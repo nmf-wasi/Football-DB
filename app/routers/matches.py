@@ -2,7 +2,7 @@
 
 from fastapi import status, Depends, APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func, asc, desc
+from sqlalchemy import select, func, asc, desc,  or_
 from app.database.database import get_db
 from app.models.football import Match, Team, Country, League
 from app.schemas.football import (
@@ -19,12 +19,16 @@ router = APIRouter()
 
 ## TODO (v2): sort/filter on Team/PlayerAttributes - skipped for v1, low value vs. effort (nobody browses raw attribute snapshots the way they browse matches/players)
 
+
 @router.get("/", response_model=PaginationResponse[MatchResponse])
 def get_matches(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     sort_by: MatchSortFields = MatchSortFields.DATE,
     order_by: SortOrder = SortOrder.ASC,
+    season: str | None = Query(None),
+    league_id: int | None = Query(None),
+    team_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     # get the attr for sort and order
@@ -35,13 +39,29 @@ def get_matches(
     queryset = select(Match)
     count_queryset = select(func.count()).select_from(Match)
     # filters
+    filters=[]
+    if season is not None:
+        filters.append(Match.season==season)
+    if league_id is not None:
+        filters.append(Match.league_id==league_id)
+    if team_id is not None:
+        filters.append(
+            or_(
+                Match.home_team_id==team_id,
+                Match.away_team_id==team_id,
+            )
+        )
 
+    # apply filters
+    queryset=queryset.where(*filters)
+    count_queryset=count_queryset.where(*filters)
+    
     # sort
     queryset = queryset.order_by(order_func(sort_column))
 
     # TODO: use this for sorting by team names, not required now -> sort by HOME_TEAM / AWAY_TEAM
     # queryset = queryset.join(Team, Match.home_team_id == Team.id).order_by(order_func(Team.team_long_name))
-    
+
     # pagination
     queryset = queryset.offset(skip).limit(limit)
     return {
