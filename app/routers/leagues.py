@@ -1,8 +1,3 @@
-# CREATE : check nae and league id before adding, to avoid dups
-# UPDATE : same, as players, use LEAGUE.id!=league_id to avoid dups
-# DELETE : IF THE LEAGUE GETS DELETED, WHAT HAPPENS TO THE CLUBS AND PLAYERS? -> league doesn't contain any clubs or player so it will be fine ig?
-
-
 from fastapi import status, Depends, APIRouter, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -10,6 +5,9 @@ from sqlalchemy.exc import IntegrityError
 from app.database.database import get_db
 from app.models.football import League, Country
 from app.schemas.football import LeagueResponse, LeagueCreate, LeagueUpdate
+from app.models.user import User
+from app.dependency import require_role
+from app.config.enums import UserRole
 
 router = APIRouter()
 
@@ -20,12 +18,28 @@ def get_leagues(db: Session = Depends(get_db)):
 
 
 @router.get("/{league_id}", response_model=LeagueResponse)
-def get_league(league_id: int, db: Session = Depends(get_db)):
-    return db.execute(select(League).where(League.id == league_id)).scalar_one_or_none()
+def get_league(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.USER)),
+):
+    league = db.execute(
+        select(League).where(League.id == league_id)
+    ).scalar_one_or_none()
+    if not league:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="League does not exist!",
+        )
+    return league
 
 
 @router.post("/", response_model=LeagueResponse)
-def create_league(league_data: LeagueCreate, db: Session = Depends(get_db)):
+def create_league(
+    league_data: LeagueCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
     league_exists = db.execute(
         select(League).where(
             League.name == league_data.name,
@@ -57,7 +71,10 @@ def create_league(league_data: LeagueCreate, db: Session = Depends(get_db)):
 
 @router.patch("/{league_id}", response_model=LeagueResponse)
 def update_league(
-    league_id: int, league_data: LeagueUpdate, db: Session = Depends(get_db)
+    league_id: int,
+    league_data: LeagueUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
 ):
     league = db.execute(
         select(League).where(
@@ -81,7 +98,11 @@ def update_league(
             )
 
     new_name = league_data.name if league_data.name is not None else league.name
-    new_country_id = league_data.country_id if league_data.country_id is not None else league.country_id
+    new_country_id = (
+        league_data.country_id
+        if league_data.country_id is not None
+        else league.country_id
+    )
 
     if league_data.name is not None or league_data.country_id is not None:
         duplicate_league = db.execute(
@@ -92,7 +113,10 @@ def update_league(
             )
         ).scalar_one_or_none()
         if duplicate_league:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="League with same name already exists for this country!")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="League with same name already exists for this country!",
+            )
     updated_data = league_data.model_dump(exclude_unset=True)
 
     for key, val in updated_data.items():
@@ -103,7 +127,11 @@ def update_league(
 
 
 @router.delete("/{league_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_league(league_id: int, db: Session = Depends(get_db)):
+def delete_league(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
     league = db.execute(
         select(League).where(
             League.id == league_id,

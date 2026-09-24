@@ -11,10 +11,11 @@ from app.schemas.football import (
     PlayerAttributesResponse,
 )
 from app.utils.slug import slugify
+from app.models.user import User
+from app.dependency import require_role
+from app.config.enums import UserRole
 
 router = APIRouter()
-
-## TODO: CHANGED THE PYDANTIC MODELS, CHANGE THE QUERY LOGICS LATER!!!
 
 
 @router.get("/", response_model=list[PlayerResponse])
@@ -26,6 +27,7 @@ def get_players(db: Session = Depends(get_db)):
 def get_player(
     player_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.USER)),
 ):
     player = db.execute(
         select(Player).where(Player.id == player_id)
@@ -42,6 +44,7 @@ def get_player(
 def create_player(
     player_data: PlayerCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
 ):
     """We use player name and birth date to check already existing player, if not found, then create player"""
 
@@ -75,6 +78,7 @@ def update_player(
     player_id: int,
     player_data: PlayerUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
 ):
     player = db.execute(
         select(Player).where(Player.id == player_id)
@@ -128,6 +132,7 @@ def update_player(
 def delete_player(
     player_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
 ):
     player = db.execute(
         select(Player).where(Player.id == player_id)
@@ -143,17 +148,15 @@ def delete_player(
 
 # PLAYER ATTRIBUTES
 
-# POST : USE RBAC TO restrict commoners, just let the admins in
-# UPDATE : patch
-# DELETE : Set player's attr to none, players shouldnt be deleted when group is deleted
-
-
-
 
 @router.get("/{player_id}/attributes", response_model=list[PlayerAttributesResponse])
-def get_player_attributes(player_id: int, db: Session = Depends(get_db)):
+def get_player_attributes(
+    player_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.USER)),
+):
     player = db.execute(
-        select(PlayerAttributes).where(Player.id == player_id)
+        select(Player).where(Player.id == player_id)
     ).scalar_one_or_none()
     if not player:
         raise HTTPException(
@@ -176,6 +179,7 @@ def get_player_attribute(
     player_id: int,
     attribute_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.USER)),
 ):
     player = db.execute(
         select(Player).where(Player.id == player_id)
@@ -199,11 +203,13 @@ def get_player_attribute(
 
     return player_attribute
 
+
 @router.post("/{player_id}/attributes", response_model=PlayerAttributesResponse)
 def create_player_attributes(
     player_id: int,
     player_attr_data: PlayerAttributesCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.USER)),
 ):
     player = db.execute(
         select(Player).where(Player.id == player_id)
@@ -221,3 +227,38 @@ def create_player_attributes(
     db.commit()
     db.refresh(new_player_attribute)
     return new_player_attribute
+
+
+@router.delete(
+    "/{player_id}/attributes/{attribute_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_player_attribute(
+    player_id: int,
+    attribute_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
+    player = db.execute(
+        select(Player).where(Player.id == player_id)
+    ).scalar_one_or_none()
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player not found!",
+        )
+
+    player_attribute = db.execute(
+        select(PlayerAttributes).where(
+            PlayerAttributes.player_id == player_id,
+            PlayerAttributes.id == attribute_id,
+        )
+    ).scalar_one_or_none()
+    if not player_attribute:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team Attribute not found!",
+        )
+
+    db.delete(player_attribute)
+    db.commit()

@@ -1,20 +1,14 @@
-# CREATE : NAME AND LONG NAME, CHECK THEM IG?
-# UPDATE : CHECK ID TO AVOID COUNTING SAME THING TWICE FOR UNIQUE VALS AND EVERYTHING IS KINDA OPTIONAL, FIX THE SCHEMAS FIRST!
-# DELETE : IF TEAM GETS DELETED, PLAYERS SHOULDN'T GET DELETED! BUT TEAM ATTRIBUTES SHOULD GET DELETED! -> CAN BE ARCHIVED, LIKE WE SEND A NEW PROPERTY WITH RESPONSE : ARCHIVED as status
+# TODO: DELETE : IF TEAM GETS DELETED, PLAYERS SHOULDN'T GET DELETED! BUT TEAM ATTRIBUTES SHOULD GET DELETED! -> CAN BE ARCHIVED, LIKE WE SEND A NEW PROPERTY WITH RESPONSE : ARCHIVED as status on v2
 # like we did for pagination response :
-#  class PaginationResponse(BaseModel, Generic[T]):
-# total: int
-# skip: int
-# limit: int
-# items: list[T]
-
-# TEAM ATTRIBUTES:
-# CREATE : WHILE CREATING, IT'S BEST IF WE CAN SHOW A SCROLLING ELEMENT TO CHOOSE TEAMS FROM, INSTEAD OF SENDING A ID
-# UPDATE : SAME LIKE OTHERS, JUST BE CAREFUL ABOUT DUPS
-# DELETE : DELETING A TEAM ATTRIBUTES SHOULDN'T DELETE TEAMS!
+# TODO: 
+# class PaginationResponse(BaseModel, Generic[T]):
+    # total: int
+    # skip: int
+    # limit: int
+    # items: list[T]
 
 
-# TODO: ADD RBAC
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -30,6 +24,9 @@ from app.schemas.football import (
 )
 from app.models.football import Team, TeamAttributes
 from app.utils.slug import slugify
+from app.models.user import User
+from app.dependency import require_role
+from app.config.enums import UserRole
 
 router = APIRouter()
 
@@ -40,12 +37,20 @@ def get_teams(db: Session = Depends(get_db)):
 
 
 @router.get("/teams/{team_id}", response_model=TeamResponse)
-def get_team(team_id: int, db: Session = Depends(get_db)):
+def get_team(
+    team_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.USER)),
+):
     return db.execute(select(Team).where(Team.id == team_id)).scalar_one_or_none()
 
 
 @router.post("/teams", response_model=TeamResponse)
-def create_team(team_data: TeamCreate, db: Session = Depends(get_db)):
+def create_team(
+    team_data: TeamCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
     team_exists = db.execute(
         select(Team).where(
             Team.team_long_name == team_data.team_long_name,
@@ -83,7 +88,12 @@ def create_team(team_data: TeamCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/teams/{team_id}", response_model=TeamResponse)
-def update_team(team_id: int, team_data: TeamUpdate, db: Session = Depends(get_db)):
+def update_team(
+    team_id: int,
+    team_data: TeamUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
     team = db.execute(select(Team).where(Team.id == team_id)).scalar_one_or_none()
     if not team:
         raise HTTPException(
@@ -126,19 +136,34 @@ def update_team(team_id: int, team_data: TeamUpdate, db: Session = Depends(get_d
 
 
 @router.delete("/teams/{team_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_team(team_id: int, db: Session = Depends(get_db)):
+def delete_team(
+    team_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
     team = db.execute(select(Team).where(Team.id == team_id)).scalar_one_or_none()
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found!",
         )
-    db.delete(team)
-    db.commit()
+    try:
+        db.delete(team)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete team with existing matches!",
+        )
 
 
 @router.get("/teams/{team_id}/attributes", response_model=list[TeamAttributesResponse])
-def get_team_attributes(team_id: int, db: Session = Depends(get_db)):
+def get_team_attributes(
+    team_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.USER)),
+):
     team = db.execute(select(Team).where(Team.id == team_id)).scalar_one_or_none()
     if not team:
         raise HTTPException(
@@ -156,30 +181,11 @@ def get_team_attributes(team_id: int, db: Session = Depends(get_db)):
     "/teams/{team_id}/attributes/{attribute_id}",
     response_model=TeamAttributesResponse,
 )
-def get_team_attribute(team_id: int, attribute_id: int, db: Session = Depends(get_db)):
-    team = db.execute(select(Team).where(Team.id == team_id)).scalar_one_or_none()
-    if not team:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Team not found!",
-        )
-    return (
-        db.execute(
-            select(TeamAttributes).where(
-                TeamAttributes.team_id == team_id, TeamAttributes.id == attribute_id
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-
-@router.post(
-    "/teams/{team_id}/attributes",
-    response_model=TeamAttributesResponse,
-)
-def create_team_attributes(
-    team_id: int, team_attributes: TeamAttributesCreate, db: Session = Depends(get_db)
+def get_team_attribute(
+    team_id: int,
+    attribute_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.USER)),
 ):
     team = db.execute(select(Team).where(Team.id == team_id)).scalar_one_or_none()
     if not team:
@@ -187,7 +193,34 @@ def create_team_attributes(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team not found!",
         )
+    team_attribute = db.execute(
+        select(TeamAttributes).where(
+            TeamAttributes.team_id == team_id, TeamAttributes.id == attribute_id
+        )
+    ).scalar_one_or_none()
+    if not team_attribute:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Team attribute not found!"
+        )
+    return team_attribute
 
+
+@router.post(
+    "/teams/{team_id}/attributes",
+    response_model=TeamAttributesResponse,
+)
+def create_team_attributes(
+    team_id: int,
+    team_attributes: TeamAttributesCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.USER)),
+):
+    team = db.execute(select(Team).where(Team.id == team_id)).scalar_one_or_none()
+    if not team:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team not found!",
+        )
     new_team_attributes = TeamAttributes()
     for key, val in team_attributes.model_dump().items():
         setattr(new_team_attributes, key, val)
@@ -206,6 +239,7 @@ def update_team_attribute(
     attribute_id: int,
     attribute_data: TeamAttributesUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.USER)),
 ):
     team = db.execute(select(Team).where(Team.id == team_id)).scalar_one_or_none()
     if not team:
@@ -239,7 +273,10 @@ def update_team_attribute(
     "/teams/{team_id}/attributes/{attribute_id}", status_code=status.HTTP_204_NO_CONTENT
 )
 def delete_team_attribute(
-    team_id: int, attribute_id: int, db: Session = Depends(get_db)
+    team_id: int,
+    attribute_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
 ):
     team = db.execute(select(Team).where(Team.id == team_id)).scalar_one_or_none()
     if not team:
@@ -259,12 +296,7 @@ def delete_team_attribute(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team Attribute not found!",
         )
-    try:
-        db.delete(team_attribute)
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Cannot delete team with existing matches!",
-        )
+
+    db.delete(team_attribute)
+    db.commit()
+    

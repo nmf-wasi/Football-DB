@@ -1,8 +1,3 @@
-# POST : only name is required to create a countrry, but thats  fine, cause, unlike playersm there can't be duplicate counties
-# UPDATE : use the same appraoch to avoid counting the country we are changing, only allowed to change : country
-# DELETE : if a country gets deleted, players should be set to NULL but shouldn't the clubs be CASCADED? or set to None?
-
-
 from fastapi import status, Depends, APIRouter, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -10,6 +5,9 @@ from sqlalchemy.exc import IntegrityError
 from app.database.database import get_db
 from app.models.football import Country
 from app.schemas.football import CountryResponse, CountryCreate, CountryUpdate
+from app.models.user import User
+from app.dependency import require_role
+from app.config.enums import UserRole
 
 router = APIRouter()
 
@@ -20,14 +18,27 @@ def get_countries(db: Session = Depends(get_db)):
 
 
 @router.get("/{country_id}", response_model=CountryResponse)
-def get_country(country_id: int, db: Session = Depends(get_db)):
-    return db.execute(
+def get_country(
+    country_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.USER)),
+):
+    country= db.execute(
         select(Country).where(Country.id == country_id)
     ).scalar_one_or_none()
-
+    if not country:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Country does not exist!",
+            )        
+    return country
 
 @router.post("/", response_model=CountryResponse)
-def create_Country(country_data: CountryCreate, db: Session = Depends(get_db)):
+def create_Country(
+    country_data: CountryCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
     country_exists = db.execute(
         select(Country).where(
             Country.name == country_data.name,
@@ -50,7 +61,10 @@ def create_Country(country_data: CountryCreate, db: Session = Depends(get_db)):
 
 @router.patch("/{country_id}", response_model=CountryResponse)
 def update_Country(
-    country_id: int, country_data: CountryUpdate, db: Session = Depends(get_db)
+    country_id: int,
+    country_data: CountryUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
 ):
     country = db.execute(
         select(Country).where(
@@ -66,18 +80,25 @@ def update_Country(
     updated_data = country_data.model_dump(exclude_unset=True)
 
     for key, val in updated_data.items():
-        setattr(Country, key, val)
+        setattr(country, key, val)
     db.commit()
-    db.refresh(Country)
-    return Country
-
+    db.refresh(country)
+    return country
 
 
 @router.delete("/{country_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_country(country_id: int, db: Session = Depends(get_db)):
-    country = db.execute(select(Country).where(Country.id == country_id)).scalar_one_or_none()
+def delete_country(
+    country_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
+    country = db.execute(
+        select(Country).where(Country.id == country_id)
+    ).scalar_one_or_none()
     if not country:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Country does not exist!")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Country does not exist!"
+        )
     try:
         db.delete(country)
         db.commit()

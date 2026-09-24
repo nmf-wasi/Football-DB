@@ -1,6 +1,4 @@
-# CREATE : IDK HOW TO CHECK DUPLICATES HERE TBH, BUT I WILL THINK ABOUT IT WHEN I DO IT
-# UPDATE : CHECK IF THE COUNTRY THEY ARE SETTING, EXISTS OR NOT, BETTER, GIVE THEM A SCROLLABLE LIST TO PICK FROM, DONT GIVE THEM OPTIONS TO SEND
-# DELETE : DELETING MATCHES SHOULDN'T BE DELETING TEAMS OR LEAGUES
+# TODDO : <front-end> CHECK IF THE COUNTRY THEY ARE SETTING, EXISTS OR NOT, BETTER, GIVE THEM A SCROLLABLE LIST TO PICK FROM, DONT GIVE THEM OPTIONS TO SEND
 
 from fastapi import status, Depends, APIRouter, HTTPException
 from sqlalchemy.orm import Session
@@ -8,6 +6,9 @@ from sqlalchemy import select
 from app.database.database import get_db
 from app.models.football import Match, Team, Country, League
 from app.schemas.football import MatchResponse, MatchCreate, MatchUpdate
+from app.models.user import User
+from app.dependency import require_role
+from app.config.enums import UserRole
 
 router = APIRouter()
 
@@ -18,12 +19,26 @@ def get_matches(db: Session = Depends(get_db)):
 
 
 @router.get("/{match_id}", response_model=MatchResponse)
-def get_match(match_id: int, db: Session = Depends(get_db)):
-    return db.execute(select(Match).where(Match.id == match_id)).scalar_one_or_none()
+def get_match(
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.USER)),
+):
+    match = db.execute(select(Match).where(Match.id == match_id)).scalar_one_or_none()
+    if not match:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Match does not exist!",
+        )
+    return match
 
 
 @router.post("/", response_model=MatchResponse)
-def create_match(match_data: MatchCreate, db: Session = Depends(get_db)):
+def create_match(
+    match_data: MatchCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
     match_exists = db.execute(
         select(Match).where(
             Match.home_team_id == match_data.home_team_id,
@@ -83,7 +98,12 @@ def create_match(match_data: MatchCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/{match_id}", response_model=MatchResponse)
-def update_match(match_id: int, match_data: MatchUpdate, db: Session = Depends(get_db)):
+def update_match(
+    match_id: int,
+    match_data: MatchUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
     match = db.execute(
         select(Match).where(
             Match.id == match_id,
@@ -172,7 +192,11 @@ def update_match(match_id: int, match_data: MatchUpdate, db: Session = Depends(g
 
 
 @router.delete("/{match_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_match(match_id: int, db: Session = Depends(get_db)):
+def delete_match(
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
     match = db.execute(
         select(Match).where(
             Match.id == match_id,
