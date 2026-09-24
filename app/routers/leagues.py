@@ -1,10 +1,10 @@
-from fastapi import status, Depends, APIRouter, HTTPException
+from fastapi import status, Depends, APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from app.database.database import get_db
 from app.models.football import League, Country
-from app.schemas.football import LeagueResponse, LeagueCreate, LeagueUpdate
+from app.schemas.football import LeagueResponse, LeagueCreate, LeagueUpdate,PaginationResponse
 from app.models.user import User
 from app.dependency import require_role
 from app.config.enums import UserRole
@@ -12,9 +12,23 @@ from app.config.enums import UserRole
 router = APIRouter()
 
 
-@router.get("/", response_model=list[LeagueResponse])
-def get_leagues(db: Session = Depends(get_db)):
-    return db.execute(select(League)).scalars().all()
+@router.get("/", response_model=PaginationResponse[LeagueResponse])
+def get_leagues(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    queryset = select(League)
+    count_queryset = select(func.count()).select_from(League)
+
+    # pagination
+    queryset = queryset.offset(skip).limit(limit)
+    return {
+        "total": db.execute(count_queryset).scalar_one(),
+        "skip": skip,
+        "limit": limit,
+        "items": db.execute(queryset).scalars().all(),
+    }
 
 
 @router.get("/{league_id}", response_model=LeagueResponse)

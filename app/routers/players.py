@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.database.database import get_db
 from app.models.football import Player, PlayerAttributes
 from app.schemas.football import (
@@ -9,6 +9,7 @@ from app.schemas.football import (
     PlayerUpdate,
     PlayerAttributesCreate,
     PlayerAttributesResponse,
+    PaginationResponse,
 )
 from app.utils.slug import slugify
 from app.models.user import User
@@ -18,9 +19,23 @@ from app.config.enums import UserRole
 router = APIRouter()
 
 
-@router.get("/", response_model=list[PlayerResponse])
-def get_players(db: Session = Depends(get_db)):
-    return db.execute(select(Player)).scalars().all()
+@router.get("/", response_model=PaginationResponse[PlayerResponse])
+def get_players(
+    skip: int = Query(0, ge=0),
+    limit:int=Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    queryset = select(Player)
+    count_queryset = select(func.count()).select_from(Player)
+
+    # pagination
+    queryset = queryset.offset(skip).limit(limit)
+    return {
+        "total": db.execute(count_queryset).scalar_one(),
+        "skip": skip,
+        "limit": limit,
+        "items": db.execute(queryset).scalars().all(),
+    }
 
 
 @router.get("/{player_id}", response_model=PlayerResponse)

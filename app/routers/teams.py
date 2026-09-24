@@ -1,18 +1,7 @@
-# TODO: DELETE : IF TEAM GETS DELETED, PLAYERS SHOULDN'T GET DELETED! BUT TEAM ATTRIBUTES SHOULD GET DELETED! -> CAN BE ARCHIVED, LIKE WE SEND A NEW PROPERTY WITH RESPONSE : ARCHIVED as status on v2
-# like we did for pagination response :
-# TODO: 
-# class PaginationResponse(BaseModel, Generic[T]):
-    # total: int
-    # skip: int
-    # limit: int
-    # items: list[T]
-
-
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.database.database import get_db
 from app.schemas.football import (
     TeamResponse,
@@ -21,6 +10,7 @@ from app.schemas.football import (
     TeamAttributesResponse,
     TeamAttributesCreate,
     TeamAttributesUpdate,
+    PaginationResponse,
 )
 from app.models.football import Team, TeamAttributes
 from app.utils.slug import slugify
@@ -31,9 +21,23 @@ from app.config.enums import UserRole
 router = APIRouter()
 
 
-@router.get("/teams", response_model=list[TeamResponse])
-def get_teams(db: Session = Depends(get_db)):
-    return db.execute(select(Team)).scalars().all()
+@router.get("/teams", response_model=PaginationResponse[TeamResponse])
+def get_teams(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    queryset = select(Team)
+    count_queryset = select(func.count()).select_from(Team)
+
+    # pagination
+    queryset = queryset.offset(skip).limit(limit)
+    return {
+        "total": db.execute(count_queryset).scalar_one(),
+        "skip": skip,
+        "limit": limit,
+        "items": db.execute(queryset).scalars().all(),
+    }
 
 
 @router.get("/teams/{team_id}", response_model=TeamResponse)
@@ -299,4 +303,3 @@ def delete_team_attribute(
 
     db.delete(team_attribute)
     db.commit()
-    

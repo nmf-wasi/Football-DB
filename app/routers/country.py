@@ -1,10 +1,15 @@
-from fastapi import status, Depends, APIRouter, HTTPException
+from fastapi import status, Depends, APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from app.database.database import get_db
 from app.models.football import Country
-from app.schemas.football import CountryResponse, CountryCreate, CountryUpdate
+from app.schemas.football import (
+    CountryResponse,
+    CountryCreate,
+    CountryUpdate,
+    PaginationResponse,
+)
 from app.models.user import User
 from app.dependency import require_role
 from app.config.enums import UserRole
@@ -12,9 +17,23 @@ from app.config.enums import UserRole
 router = APIRouter()
 
 
-@router.get("/", response_model=list[CountryResponse])
-def get_countries(db: Session = Depends(get_db)):
-    return db.execute(select(Country)).scalars().all()
+@router.get("/", response_model=PaginationResponse[CountryResponse])
+def get_countries(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    queryset = select(Country)
+    count_queryset = select(func.count()).select_from(Country)
+
+    # pagination
+    queryset = queryset.offset(skip).limit(limit)
+    return {
+        "total": db.execute(count_queryset).scalar_one(),
+        "skip": skip,
+        "limit": limit,
+        "items": db.execute(queryset).scalars().all(),
+    }
 
 
 @router.get("/{country_id}", response_model=CountryResponse)
@@ -23,15 +42,16 @@ def get_country(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.USER)),
 ):
-    country= db.execute(
+    country = db.execute(
         select(Country).where(Country.id == country_id)
     ).scalar_one_or_none()
     if not country:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Country does not exist!",
-            )        
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Country does not exist!",
+        )
     return country
+
 
 @router.post("/", response_model=CountryResponse)
 def create_Country(

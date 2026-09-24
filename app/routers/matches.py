@@ -1,11 +1,11 @@
 # TODDO : <front-end> CHECK IF THE COUNTRY THEY ARE SETTING, EXISTS OR NOT, BETTER, GIVE THEM A SCROLLABLE LIST TO PICK FROM, DONT GIVE THEM OPTIONS TO SEND
 
-from fastapi import status, Depends, APIRouter, HTTPException
+from fastapi import status, Depends, APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.database.database import get_db
 from app.models.football import Match, Team, Country, League
-from app.schemas.football import MatchResponse, MatchCreate, MatchUpdate
+from app.schemas.football import MatchResponse, MatchCreate, MatchUpdate,PaginationResponse
 from app.models.user import User
 from app.dependency import require_role
 from app.config.enums import UserRole
@@ -13,9 +13,23 @@ from app.config.enums import UserRole
 router = APIRouter()
 
 
-@router.get("/", response_model=list[MatchResponse])
-def get_matches(db: Session = Depends(get_db)):
-    return db.execute(select(Match)).scalars().all()
+@router.get("/", response_model=PaginationResponse[MatchResponse])
+def get_matches(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    queryset = select(Match)
+    count_queryset = select(func.count()).select_from(Match)
+
+    # pagination
+    queryset = queryset.offset(skip).limit(limit)
+    return {
+        "total": db.execute(count_queryset).scalar_one(),
+        "skip": skip,
+        "limit": limit,
+        "items": db.execute(queryset).scalars().all(),
+    }
 
 
 @router.get("/{match_id}", response_model=MatchResponse)

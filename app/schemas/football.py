@@ -4,6 +4,19 @@ from datetime import date, datetime
 ## TODO: check the comments, u will see what to do!
 
 
+from typing import Generic, TypeVar
+from pydantic import BaseModel
+
+T = TypeVar("T")
+
+
+class PaginationResponse(BaseModel, Generic[T]):
+    total: int
+    skip: int
+    limit: int
+    items: list[T]
+
+
 class CountryBase(BaseModel):
     name: str
 
@@ -121,9 +134,9 @@ class PlayerAttributesBase(BaseModel):
     creation_date: datetime | None = None
     overall_rating: float | None = None
     potential: float | None = None
-    preferred_foot: str
-    attacking_work_rate: str
-    defensive_work_rate: str
+    preferred_foot: str|None=None
+    attacking_work_rate: str|None=None
+    defensive_work_rate: str|None=None
     sprint_speed: float | None = None
     finishing: float | None = None
     short_passing: float | None = None
