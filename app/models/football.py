@@ -34,7 +34,9 @@ class Team(Base):
     __tablename__ = "teams"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    team_api_id: Mapped[int] = mapped_column(unique=True, index=True)
+    team_api_id: Mapped[int | None] = mapped_column(
+        unique=True, index=True, nullable=True
+    )
     team_long_name: Mapped[str | None] = mapped_column(nullable=True)
     team_short_name: Mapped[str] = mapped_column()
     slug: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
@@ -43,10 +45,10 @@ class Team(Base):
         back_populates="team"
     )
     home_matches: Mapped[list["Match"]] = relationship(
-        foreign_keys="Match.home_team_api_id", back_populates="home_team"
+        foreign_keys="Match.home_team_id", back_populates="home_team"
     )
     away_matches: Mapped[list["Match"]] = relationship(
-        foreign_keys="Match.away_team_api_id", back_populates="away_team"
+        foreign_keys="Match.away_team_id", back_populates="away_team"
     )
 
 

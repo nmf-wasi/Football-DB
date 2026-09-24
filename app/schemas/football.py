@@ -33,9 +33,6 @@ class LeagueResponse(LeagueBase):
 class TeamBase(BaseModel):
     team_long_name: str
     team_short_name: str
-    team_api_id: int  # CHECK IF U CAN MAKE THIS NULLABLE, DONT TRUST THE DATASET, USE BRAIN TO IDENTIFY THE CLASS AND IF IT'S NULABLE OR NOT
-    team_fifa_api_id: float | None
-    # CHECK IF U CAN MAKE THIS NULLABLE, DONT TRUST THE DATASET, USE BRAIN TO IDENTIFY THE CLASS AND IF IT'S NULABLE OR NOT
 
 
 class TeamResponse(TeamBase):
@@ -50,8 +47,12 @@ class TeamCreate(TeamBase):
     pass
 
 
+class TeamUpdate(BaseModel):
+    team_long_name: str | None = None
+    team_short_name: str | None = None
+
+
 class TeamAttributesBase(BaseModel):
-    team_fifa_api_id: int | None = None
     creation_date: date | None = None
     buildUpPlaySpeed: int | None = None
     buildUpPlayDribbling: float | None = None
@@ -75,10 +76,13 @@ class TeamAttributesCreate(TeamAttributesBase):
     pass
 
 
+class TeamAttributesUpdate(TeamAttributesBase):
+    pass
+
+
 class PlayerBase(BaseModel):
     player_api_id: int | None = None
     player_name: str
-    player_fifa_api_id: int | None = None
     birthday: date
     height: float | None = None
     weight: float | None = None
@@ -97,14 +101,12 @@ class PlayerResponse(PlayerBase):
 class PlayerUpdate(BaseModel):
     player_api_id: int | None = None
     player_name: str | None = None
-    player_fifa_api_id: int | None = None
     birthday: date | None = None
     height: float | None = None
     weight: float | None = None
 
 
 class PlayerAttributesBase(BaseModel):
-    # player_fifa_api_id: int
     # player_api_id: int
     # player_id:int
     creation_date: datetime | None = None

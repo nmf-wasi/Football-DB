@@ -14,6 +14,8 @@ from app.utils.slug import slugify
 
 router = APIRouter()
 
+## TODO: CHANGED THE PYDANTIC MODELS, CHANGE THE QUERY LOGICS LATER!!!
+
 
 @router.get("/", response_model=list[PlayerResponse])
 def get_players(db: Session = Depends(get_db)):
@@ -146,6 +148,57 @@ def delete_player(
 # DELETE : Set player's attr to none, players shouldnt be deleted when group is deleted
 
 
+
+
+@router.get("/{player_id}/attributes", response_model=list[PlayerAttributesResponse])
+def get_player_attributes(player_id: int, db: Session = Depends(get_db)):
+    player = db.execute(
+        select(PlayerAttributes).where(Player.id == player_id)
+    ).scalar_one_or_none()
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player does not exist!",
+        )
+    return (
+        db.execute(
+            select(PlayerAttributes).where(PlayerAttributes.player_id == player_id)
+        )
+        .scalars()
+        .all()
+    )
+
+
+@router.get(
+    "/{player_id}/attributes/{attribute_id}", response_model=PlayerAttributesResponse
+)
+def get_player_attribute(
+    player_id: int,
+    attribute_id: int,
+    db: Session = Depends(get_db),
+):
+    player = db.execute(
+        select(Player).where(Player.id == player_id)
+    ).scalar_one_or_none()
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player does not exist!",
+        )
+    player_attribute = db.execute(
+        select(PlayerAttributes).where(
+            PlayerAttributes.id == attribute_id,
+            PlayerAttributes.player_id == player_id,
+        )
+    ).scalar_one_or_none()
+    if not player_attribute:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player attribute does not exist!",
+        )
+
+    return player_attribute
+
 @router.post("/{player_id}/attributes", response_model=PlayerAttributesResponse)
 def create_player_attributes(
     player_id: int,
@@ -168,50 +221,3 @@ def create_player_attributes(
     db.commit()
     db.refresh(new_player_attribute)
     return new_player_attribute
-
-
-@router.get(
-    "/{player_id}/attributes/{attribute_id}", response_model=PlayerAttributesResponse
-)
-def get_player_attribute(
-    player_id: int,
-    attribute_id: int,
-    db: Session = Depends(get_db),
-):
-    player = db.execute(
-        select(Player).where(Player.id == player_id)
-    ).scalar_one_or_none()
-    if not player:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player does not exist!",
-        )
-    player_attribute = db.execute(
-        select(Player).where(PlayerAttributes.id == attribute_id)
-    ).scalar_one_or_none()
-    if not player_attribute:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player attribute does not exist!",
-        )
-
-    return player_attribute
-
-
-@router.get("/{player_id}", response_model=list[PlayerAttributesResponse])
-def get_player_attributes(player_id: int, db: Session = Depends(get_db)):
-    player = db.execute(
-        select(PlayerAttributes).where(Player.id == player_id)
-    ).scalar_one_or_none()
-    if not player:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player does not exist!",
-        )
-    return (
-        db.execute(
-            select(PlayerAttributes).where(PlayerAttributes.player_api_id == player_id)
-        )
-        .scalars()
-        .all()
-    )
