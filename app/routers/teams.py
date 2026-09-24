@@ -17,6 +17,7 @@
 # TODO: ADD RBAC
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 from app.database.database import get_db
 from app.schemas.football import (
@@ -25,7 +26,7 @@ from app.schemas.football import (
     TeamUpdate,
     TeamAttributesResponse,
     TeamAttributesCreate,
-    TeamAttributesUpdate
+    TeamAttributesUpdate,
 )
 from app.models.football import Team, TeamAttributes
 from app.utils.slug import slugify
@@ -258,6 +259,12 @@ def delete_team_attribute(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Team Attribute not found!",
         )
-
-    db.delete(team_attribute)
-    db.commit()
+    try:
+        db.delete(team_attribute)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete team with existing matches!",
+        )

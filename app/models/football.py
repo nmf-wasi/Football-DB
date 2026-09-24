@@ -1,8 +1,7 @@
-from sqlalchemy import Integer, Float, String, Date, DateTime, ForeignKey
+from sqlalchemy import Integer, Float, String, Date, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 from app.database.database import Base
 from datetime import date as date_type, datetime
-
 ## TODO: FIXED AN ERROR IN DB OUTLINE, RUN ANOTHER MIGRATION!!!
 
 
@@ -22,7 +21,7 @@ class League(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False)
-    country_id: Mapped[int] = mapped_column(ForeignKey("countries.id"), index=True)
+    country_id: Mapped[int] = mapped_column(ForeignKey("countries.id", ondelete="RESTRICT"), index=True)
     country: Mapped["Country"] = relationship(back_populates="leagues")
 
 
@@ -130,17 +129,17 @@ class Match(Base):
     __tablename__ = "matches"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     country_id: Mapped[int | None] = mapped_column(
-        ForeignKey("countries.id"), nullable=True, index=True
+        ForeignKey("countries.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     league_id: Mapped[int | None] = mapped_column(
-        ForeignKey("leagues.id"), nullable=True
+        ForeignKey("leagues.id",ondelete="RESTRICT"), nullable=True
     )
     season: Mapped[str | None] = mapped_column(String, nullable=True)
     stage: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    date: Mapped[date_type | None] = mapped_column(Date, nullable=True)
+    date: Mapped[date_type] = mapped_column(Date,nullable=False)
     match_api_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    home_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), index=True)
-    away_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
+    home_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id",ondelete="RESTRICT"), index=True)
+    away_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id",ondelete="RESTRICT"))
     home_team: Mapped[Team] = relationship(
         foreign_keys=[home_team_id], back_populates="home_matches"
     )

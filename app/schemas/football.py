@@ -16,6 +16,10 @@ class CountryCreate(CountryBase):
     pass
 
 
+class CountryUpdate(BaseModel):
+    name: str | None = None
+
+
 class LeagueBase(BaseModel):
     name: str
     country_id: int
@@ -28,6 +32,11 @@ class LeagueCreate(LeagueBase):
 class LeagueResponse(LeagueBase):
     id: int
     country: CountryBase
+
+
+class LeagueUpdate(BaseModel):
+    name: str | None = None
+    country_id: int | None = None
 
 
 class TeamBase(BaseModel):
@@ -140,20 +149,16 @@ class PlayerAttributesCreate(PlayerAttributesBase):
 class MatchBase(BaseModel):
     country_id: int | None = None
     league_id: int | None = None
-    season: str | None = (
-        None  # make it like seaons availble till current year, also auto update for next year
-    )
+    season: str | None = None
     stage: int | None = None
-    date: date | None
-    match_api_id: int | None
-    home_team_api_id: (
-        int | None
-    )  # make these scrollable,  select from the scroll, not just pass a value
-    away_team_api_id: int | None
+    date: date  # required - every match has one
+    match_api_id: int | None = None
+    home_team_id: int  # required - matches the model's FK rename
+    away_team_id: int  # required - matches the model's FK rename
 
 
 class MatchResponse(MatchBase):
-    id: int  # use uuid
+    id: int
     home_team: TeamBase
     away_team: TeamBase
     home_team_goal: int | None = None
@@ -162,3 +167,9 @@ class MatchResponse(MatchBase):
 
 class MatchCreate(MatchBase):
     pass
+
+
+class MatchUpdate(MatchCreate):
+    pass
+
+    # home team or away team or data can't be none or else we can't check dups
