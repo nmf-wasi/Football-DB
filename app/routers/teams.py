@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select, func
+from sqlalchemy import select, func, asc, desc
 from app.database.database import get_db
 from app.schemas.football import (
     TeamResponse,
@@ -16,7 +16,7 @@ from app.models.football import Team, TeamAttributes
 from app.utils.slug import slugify
 from app.models.user import User
 from app.dependency import require_role
-from app.config.enums import UserRole
+from app.config.enums import UserRole, TeamSortFields, SortOrder
 
 router = APIRouter()
 
@@ -25,11 +25,20 @@ router = APIRouter()
 def get_teams(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
+    sort_by: TeamSortFields = TeamSortFields.TEAM_SHORT_NAME,
+    order_by: SortOrder = SortOrder.ASC,
     db: Session = Depends(get_db),
 ):
+    # get sort and order by attributes
+    sort_column = getattr(Team, sort_by.value)
+    order_func = desc if order_by == SortOrder.DESC else asc
+
+    # base queryset
     queryset = select(Team)
     count_queryset = select(func.count()).select_from(Team)
 
+    # sort
+    queryset=queryset.order_by(order_func(sort_column))
     # pagination
     queryset = queryset.offset(skip).limit(limit)
     return {

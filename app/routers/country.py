@@ -1,6 +1,6 @@
 from fastapi import status, Depends, APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+from sqlalchemy import select, func, asc, desc
 from sqlalchemy.exc import IntegrityError
 from app.database.database import get_db
 from app.models.football import Country
@@ -12,7 +12,7 @@ from app.schemas.football import (
 )
 from app.models.user import User
 from app.dependency import require_role
-from app.config.enums import UserRole
+from app.config.enums import UserRole, SortOrder, CountrySortField
 
 router = APIRouter()
 
@@ -21,10 +21,20 @@ router = APIRouter()
 def get_countries(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
+    sort_by: CountrySortField = CountrySortField.NAME,
+    order_by: SortOrder = SortOrder.ASC,
     db: Session = Depends(get_db),
 ):
+    # get sort and order by val
+    sort_column=getattr(Country, sort_by)
+    order_func=desc if order_by==SortOrder.DESC else asc
+
+    # base queryset
     queryset = select(Country)
     count_queryset = select(func.count()).select_from(Country)
+
+    #sort
+    queryset=queryset.order_by(order_func(sort_column))
 
     # pagination
     queryset = queryset.offset(skip).limit(limit)

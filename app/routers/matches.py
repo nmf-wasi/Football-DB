@@ -2,13 +2,18 @@
 
 from fastapi import status, Depends, APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+from sqlalchemy import select, func, asc, desc
 from app.database.database import get_db
 from app.models.football import Match, Team, Country, League
-from app.schemas.football import MatchResponse, MatchCreate, MatchUpdate,PaginationResponse
+from app.schemas.football import (
+    MatchResponse,
+    MatchCreate,
+    MatchUpdate,
+    PaginationResponse,
+)
 from app.models.user import User
 from app.dependency import require_role
-from app.config.enums import UserRole
+from app.config.enums import UserRole, MatchSortFields, SortOrder
 
 router = APIRouter()
 
@@ -17,11 +22,24 @@ router = APIRouter()
 def get_matches(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
+    sort_by: MatchSortFields = MatchSortFields.DATE,
+    order_by: SortOrder = SortOrder.ASC,
     db: Session = Depends(get_db),
 ):
+    # get the attr for sort and order
+    sort_column = getattr(Match, sort_by)
+    order_func = desc if order_by == SortOrder.DESC else asc
+
+    # base queryset
     queryset = select(Match)
     count_queryset = select(func.count()).select_from(Match)
 
+    # sort
+    queryset = queryset.order_by(order_func(sort_column))
+
+    # TODO: use this for sorting by team names, not required now -> sort by HOME_TEAM / AWAY_TEAM
+    # queryset = queryset.join(Team, Match.home_team_id == Team.id).order_by(order_func(Team.team_long_name))
+    
     # pagination
     queryset = queryset.offset(skip).limit(limit)
     return {

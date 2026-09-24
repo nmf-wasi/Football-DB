@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+from sqlalchemy import select, func, asc, desc
 from app.database.database import get_db
 from app.models.football import Player, PlayerAttributes
 from app.schemas.football import (
@@ -14,7 +14,7 @@ from app.schemas.football import (
 from app.utils.slug import slugify
 from app.models.user import User
 from app.dependency import require_role
-from app.config.enums import UserRole
+from app.config.enums import UserRole, PlayerSortFields, SortOrder
 
 router = APIRouter()
 
@@ -22,11 +22,21 @@ router = APIRouter()
 @router.get("/", response_model=PaginationResponse[PlayerResponse])
 def get_players(
     skip: int = Query(0, ge=0),
-    limit:int=Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=100),
+    sort_by: PlayerSortFields = PlayerSortFields.NAME,
+    order_by: SortOrder = SortOrder.ASC,
     db: Session = Depends(get_db),
 ):
+    # get value for sort and order bby
+    sort_column = getattr(Player, sort_by.value)
+    order_func = desc if order_by == SortOrder.DESC else asc
+
+    # base queryset
     queryset = select(Player)
     count_queryset = select(func.count()).select_from(Player)
+
+    # sort
+    queryset=queryset.order_by(order_func(sort_column))
 
     # pagination
     queryset = queryset.offset(skip).limit(limit)
