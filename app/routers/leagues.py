@@ -23,6 +23,8 @@ def get_leagues(
     limit: int = Query(10, ge=1, le=100),
     sort_by: LeagueSortField = LeagueSortField.NAME,
     order_by: SortOrder = SortOrder.ASC,
+    country_id: int | None = Query(None),
+    search:str=Query(None, min_length=1, max_length=24),
     db: Session = Depends(get_db),
 ):
     # get sort and order by val
@@ -32,6 +34,19 @@ def get_leagues(
     # base queryset
     queryset = select(League)
     count_queryset = select(func.count()).select_from(League)
+    # filters 
+    filters=[]
+    # search
+    if search is not None:
+        filters.append(League.name.ilike(f"%{search}%"))
+
+    # filters
+    if country_id is not None:
+        filters.append(League.country_id==country_id)
+
+    # apply filters
+    queryset=queryset.where(*filters)
+    count_queryset=count_queryset.where(*filters)
 
     # sort
     queryset = queryset.order_by(order_func(sort_column))

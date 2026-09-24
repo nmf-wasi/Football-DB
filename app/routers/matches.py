@@ -17,6 +17,7 @@ from app.config.enums import UserRole, MatchSortFields, SortOrder
 
 router = APIRouter()
 
+## TODO (v2): sort/filter on Team/PlayerAttributes - skipped for v1, low value vs. effort (nobody browses raw attribute snapshots the way they browse matches/players)
 
 @router.get("/", response_model=PaginationResponse[MatchResponse])
 def get_matches(
@@ -33,6 +34,7 @@ def get_matches(
     # base queryset
     queryset = select(Match)
     count_queryset = select(func.count()).select_from(Match)
+    # filters
 
     # sort
     queryset = queryset.order_by(order_func(sort_column))
