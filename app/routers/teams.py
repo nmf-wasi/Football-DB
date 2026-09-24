@@ -4,7 +4,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, func, asc, desc, or_
 from app.database.database import get_db
 from app.schemas.football import (
-    TeamResponse,
+    TeamResponseDetail,
+    TeamResponseShort,
     TeamCreate,
     TeamUpdate,
     TeamAttributesResponse,
@@ -21,7 +22,7 @@ from app.config.enums import UserRole, TeamSortFields, SortOrder
 router = APIRouter()
 
 
-@router.get("/teams", response_model=PaginationResponse[TeamResponse])
+@router.get("/teams", response_model=PaginationResponse[TeamResponseShort])
 def get_teams(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
@@ -65,7 +66,7 @@ def get_teams(
     }
 
 
-@router.get("/teams/{team_id}", response_model=TeamResponse)
+@router.get("/teams/{team_id}", response_model=TeamResponseDetail)
 def get_team(
     team_id: int,
     db: Session = Depends(get_db),
@@ -74,7 +75,7 @@ def get_team(
     return db.execute(select(Team).where(Team.id == team_id)).scalar_one_or_none()
 
 
-@router.post("/teams", response_model=TeamResponse)
+@router.post("/teams", response_model=TeamResponseDetail)
 def create_team(
     team_data: TeamCreate,
     db: Session = Depends(get_db),
@@ -116,7 +117,7 @@ def create_team(
     return new_team
 
 
-@router.patch("/teams/{team_id}", response_model=TeamResponse)
+@router.patch("/teams/{team_id}", response_model=TeamResponseDetail)
 def update_team(
     team_id: int,
     team_data: TeamUpdate,

@@ -57,7 +57,12 @@ class TeamBase(BaseModel):
     team_short_name: str
 
 
-class TeamResponse(TeamBase):
+class TeamResponseShort(TeamBase):
+    id: int
+    slug: str
+
+
+class TeamResponseDetail(TeamBase):
     id: int
     team_attributes: list["TeamAttributesBase"]
     home_matches: list["MatchBase"]
@@ -90,6 +95,13 @@ class TeamAttributesBase(BaseModel):
     defenceDefenderLineClass: str | None = None
 
 
+class TeamAttributesResponseShort(BaseModel):
+    id: int
+    creation_date: date | None = None
+    buildUpPlayDribbling: float | None = None
+    buildUpPlayPassing: int | None = None
+
+
 class TeamAttributesResponse(TeamAttributesBase):
     id: int
 
@@ -116,7 +128,7 @@ class PlayerCreate(PlayerBase):
 
 class PlayerResponse(PlayerBase):
     id: int
-    attributes: list["PlayerAttributesBase"]
+    attributes: list["PlayerAttributesResponseShort"]
     slug: str
 
 
@@ -134,9 +146,9 @@ class PlayerAttributesBase(BaseModel):
     creation_date: datetime | None = None
     overall_rating: float | None = None
     potential: float | None = None
-    preferred_foot: str|None=None
-    attacking_work_rate: str|None=None
-    defensive_work_rate: str|None=None
+    preferred_foot: str | None = None
+    attacking_work_rate: str | None = None
+    defensive_work_rate: str | None = None
     sprint_speed: float | None = None
     finishing: float | None = None
     short_passing: float | None = None
@@ -150,7 +162,13 @@ class PlayerAttributesBase(BaseModel):
     gk_reflexes: float | None = None
 
 
-class PlayerAttributesResponse(PlayerAttributesBase):
+class PlayerAttributesResponseShort(BaseModel):
+    creation_date: datetime | None = None
+    overall_rating: float | None = None
+    preferred_foot: str | None = None
+
+
+class PlayerAttributesResponseDetail(PlayerAttributesBase):
     id: int
     player: PlayerBase
 
@@ -176,6 +194,13 @@ class MatchResponse(MatchBase):
     away_team: TeamBase
     home_team_goal: int | None = None
     away_team_goal: int | None = None
+
+
+class MatchResponseShort(BaseModel):
+    id: int
+    date: date
+    home_team_id: int
+    away_team_id: int
 
 
 class MatchCreate(MatchBase):

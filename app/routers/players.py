@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import select, func, asc, desc
 from app.database.database import get_db
 from app.models.football import Player, PlayerAttributes
@@ -8,7 +8,7 @@ from app.schemas.football import (
     PlayerCreate,
     PlayerUpdate,
     PlayerAttributesCreate,
-    PlayerAttributesResponse,
+    PlayerAttributesResponseDetail,
     PaginationResponse,
 )
 from app.utils.slug import slugify
@@ -33,7 +33,7 @@ def get_players(
     order_func = desc if order_by == SortOrder.DESC else asc
 
     # base queryset
-    queryset = select(Player)
+    queryset = select(Player).options(selectinload(Player.attributes))
     count_queryset = select(func.count()).select_from(Player)
     # filters
     filters = []
@@ -65,7 +65,9 @@ def get_player(
     current_user: User = Depends(require_role(UserRole.USER)),
 ):
     player = db.execute(
-        select(Player).where(Player.id == player_id)
+        select(Player)
+        .options(selectinload(Player.attributes))
+        .where(Player.id == player_id)
     ).scalar_one_or_none()
     if not player:
         raise HTTPException(
@@ -184,7 +186,9 @@ def delete_player(
 # PLAYER ATTRIBUTES
 
 
-@router.get("/{player_id}/attributes", response_model=list[PlayerAttributesResponse])
+@router.get(
+    "/{player_id}/attributes", response_model=list[PlayerAttributesResponseDetail]
+)
 def get_player_attributes(
     player_id: int,
     db: Session = Depends(get_db),
@@ -200,7 +204,9 @@ def get_player_attributes(
         )
     return (
         db.execute(
-            select(PlayerAttributes).where(PlayerAttributes.player_id == player_id)
+            select(PlayerAttributes)
+            .options(joinedload(PlayerAttributes.player))
+            .where(PlayerAttributes.player_id == player_id)
         )
         .scalars()
         .all()
@@ -208,7 +214,8 @@ def get_player_attributes(
 
 
 @router.get(
-    "/{player_id}/attributes/{attribute_id}", response_model=PlayerAttributesResponse
+    "/{player_id}/attributes/{attribute_id}",
+    response_model=PlayerAttributesResponseDetail,
 )
 def get_player_attribute(
     player_id: int,
@@ -225,7 +232,9 @@ def get_player_attribute(
             detail="Player does not exist!",
         )
     player_attribute = db.execute(
-        select(PlayerAttributes).where(
+        select(PlayerAttributes)
+        .options(joinedload(PlayerAttributes.player))
+        .where(
             PlayerAttributes.id == attribute_id,
             PlayerAttributes.player_id == player_id,
         )
@@ -239,7 +248,7 @@ def get_player_attribute(
     return player_attribute
 
 
-@router.post("/{player_id}/attributes", response_model=PlayerAttributesResponse)
+@router.post("/{player_id}/attributes", response_model=PlayerAttributesResponseDetail)
 def create_player_attributes(
     player_id: int,
     player_attr_data: PlayerAttributesCreate,

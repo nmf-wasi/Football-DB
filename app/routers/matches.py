@@ -1,7 +1,7 @@
 # TODDO : <front-end> CHECK IF THE COUNTRY THEY ARE SETTING, EXISTS OR NOT, BETTER, GIVE THEM A SCROLLABLE LIST TO PICK FROM, DONT GIVE THEM OPTIONS TO SEND
 
 from fastapi import status, Depends, APIRouter, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import select, func, asc, desc,  or_
 from app.database.database import get_db
 from app.models.football import Match, Team, Country, League
@@ -36,7 +36,7 @@ def get_matches(
     order_func = desc if order_by == SortOrder.DESC else asc
 
     # base queryset
-    queryset = select(Match)
+    queryset = select(Match).options(joinedload(Match.home_team), joinedload(Match.away_team))
     count_queryset = select(func.count()).select_from(Match)
     # filters
     filters=[]
@@ -55,7 +55,7 @@ def get_matches(
     # apply filters
     queryset=queryset.where(*filters)
     count_queryset=count_queryset.where(*filters)
-    
+
     # sort
     queryset = queryset.order_by(order_func(sort_column))
 
@@ -78,7 +78,7 @@ def get_match(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.USER)),
 ):
-    match = db.execute(select(Match).where(Match.id == match_id)).scalar_one_or_none()
+    match = db.execute(select(Match).options(joinedload(Match.home_team), joinedload(Match.away_team)).where(Match.id == match_id)).scalar_one_or_none()
     if not match:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
