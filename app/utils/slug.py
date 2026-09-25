@@ -4,6 +4,7 @@ import re
 def slugify(text, existing_slugs) -> str:
     """generate unique slugs for teams and players"""
 
+    existing_slugs = set(existing_slugs)
     base = text.lower().strip()
     base = re.sub(r"[^a-z0-9\s-]", "", base)
     base = re.sub(r"\s+", "-", base)

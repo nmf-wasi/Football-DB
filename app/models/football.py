@@ -10,7 +10,7 @@ class Country(Base):
 
     __tablename__ = "countries"
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(nullable=False)
+    name: Mapped[str] = mapped_column(nullable=False, unique=True)
     leagues: Mapped[list["League"]] = relationship(back_populates="country")
 
 

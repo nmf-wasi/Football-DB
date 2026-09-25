@@ -130,7 +130,7 @@ def update_league(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="league does not exist!",
         )
-
+    
     if league_data.country_id is not None:
         country = db.execute(
             select(Country).where(Country.id == league_data.country_id)

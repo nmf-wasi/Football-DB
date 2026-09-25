@@ -72,7 +72,13 @@ def get_team(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.USER)),
 ):
-    return db.execute(select(Team).where(Team.id == team_id)).scalar_one_or_none()
+    team = db.execute(select(Team).where(Team.id == team_id)).scalar_one_or_none()
+    if not team:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team not found!",
+        )
+    return team
 
 
 @router.post("/", response_model=TeamResponseDetail)

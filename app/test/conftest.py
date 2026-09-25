@@ -70,3 +70,34 @@ def admin_client(client, admin_user):
     token = response.json()["access_token"]
     client.headers.update({"Authorization": f"Bearer {token}"})
     return client
+
+
+@pytest.fixture
+def general_user(db_session):
+    """take a fresh db session, inserts a new normal user"""
+
+    user = User(
+        username="user_test",
+        email="user@test.com",
+        hashed_password=hash_password("testPassword123"),
+        user_role=UserRole.USER,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def general_client(client, general_user):
+    """user general user so that before login, the user exists in db and calls actual login route to login"""
+    response = client.post(
+        "/api/users/login",
+        data={
+            "username": "user_test",
+            "password": "testPassword123",
+        },
+    )
+    token = response.json()["access_token"]
+    client.headers.update({"Authorization": f"Bearer {token}"})
+    return client

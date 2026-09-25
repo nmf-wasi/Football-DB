@@ -118,6 +118,19 @@ def update_Country(
             detail="Country does not exist!",
         )
 
+    new_country_name = (
+        country_data.name if country_data.name is not None else country.name
+    )
+    duplicate_exists = db.execute(
+        select(Country).where(
+            Country.name == new_country_name, Country.id != country_id
+        )
+    ).scalar_one_or_none()
+    if duplicate_exists:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Country with similar name already exists!",
+        )
     updated_data = country_data.model_dump(exclude_unset=True)
 
     for key, val in updated_data.items():

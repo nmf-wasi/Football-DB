@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from datetime import date, datetime
+from pydantic import BaseModel, ConfigDict, field_validator
+from datetime import date as date_type, datetime
 
 ## TODO: check the comments, u will see what to do!
 
@@ -23,10 +23,14 @@ class CountryBase(BaseModel):
 
 class CountryResponse(CountryBase):
     id: int
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CountryCreate(CountryBase):
-    pass
+    @field_validator("name")
+    @classmethod
+    def capitalize_name(cls, name: str) -> str:
+        return name.capitalize()
 
 
 class CountryUpdate(BaseModel):
@@ -45,6 +49,7 @@ class LeagueCreate(LeagueBase):
 class LeagueResponse(LeagueBase):
     id: int
     country: CountryBase
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LeagueUpdate(BaseModel):
@@ -60,6 +65,7 @@ class TeamBase(BaseModel):
 class TeamResponseShort(TeamBase):
     id: int
     slug: str
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TeamResponseDetail(TeamBase):
@@ -68,6 +74,7 @@ class TeamResponseDetail(TeamBase):
     home_matches: list["MatchBase"]
     away_matches: list["MatchBase"]
     slug: str
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TeamCreate(TeamBase):
@@ -80,7 +87,7 @@ class TeamUpdate(BaseModel):
 
 
 class TeamAttributesBase(BaseModel):
-    creation_date: date | None = None
+    creation_date: date_type | None = None
     buildUpPlaySpeed: int | None = None
     buildUpPlayDribbling: float | None = None
     buildUpPlayPassing: int | None = None
@@ -97,13 +104,15 @@ class TeamAttributesBase(BaseModel):
 
 class TeamAttributesResponseShort(BaseModel):
     id: int
-    creation_date: date | None = None
+    creation_date: date_type | None = None
     buildUpPlayDribbling: float | None = None
     buildUpPlayPassing: int | None = None
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TeamAttributesResponse(TeamAttributesBase):
     id: int
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TeamAttributesCreate(TeamAttributesBase):
@@ -117,27 +126,42 @@ class TeamAttributesUpdate(TeamAttributesBase):
 class PlayerBase(BaseModel):
     player_api_id: int | None = None
     player_name: str
-    birthday: date
+    birthday: date_type
     height: float | None = None
     weight: float | None = None
 
 
 class PlayerCreate(PlayerBase):
-    pass
+    @field_validator("birthday")
+    @classmethod
+    def validate_date_not_in_future(cls, birthday: date_type) -> date_type:
+        if birthday > date_type.today():
+            raise ValueError("Birthday cannot be in the future")
+        return birthday
 
 
 class PlayerResponse(PlayerBase):
     id: int
     attributes: list["PlayerAttributesResponseShort"]
     slug: str
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PlayerUpdate(BaseModel):
     player_api_id: int | None = None
     player_name: str | None = None
-    birthday: date | None = None
+    birthday: date_type | None = None
     height: float | None = None
     weight: float | None = None
+
+    @field_validator("birthday")
+    @classmethod
+    def validate_date_not_in_future(
+        cls, birthday: date_type | None
+    ) -> date_type | None:
+        if birthday is not None and birthday > date_type.today():
+            raise ValueError("Birthday cannot be in the future")
+        return birthday
 
 
 class PlayerAttributesBase(BaseModel):
@@ -166,15 +190,22 @@ class PlayerAttributesResponseShort(BaseModel):
     creation_date: datetime | None = None
     overall_rating: float | None = None
     preferred_foot: str | None = None
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PlayerAttributesResponseDetail(PlayerAttributesBase):
     id: int
     player: PlayerBase
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PlayerAttributesCreate(PlayerAttributesBase):
-    pass
+    @field_validator("creation_date")
+    @classmethod
+    def validate_date_not_in_future(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value > datetime.now():
+            raise ValueError("Creation date cannot be in the future")
+        return value
 
 
 class MatchBase(BaseModel):
@@ -182,7 +213,7 @@ class MatchBase(BaseModel):
     league_id: int | None = None
     season: str | None = None
     stage: int | None = None
-    date: date  # required - every match has one
+    date: date_type  # required - every match has one
     match_api_id: int | None = None
     home_team_id: int  # required - matches the model's FK rename
     away_team_id: int  # required - matches the model's FK rename
@@ -194,20 +225,44 @@ class MatchResponse(MatchBase):
     away_team: TeamBase
     home_team_goal: int | None = None
     away_team_goal: int | None = None
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MatchResponseShort(BaseModel):
     id: int
-    date: date
+    date: date_type
     home_team_id: int
     away_team_id: int
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MatchCreate(MatchBase):
-    pass
+
+    @field_validator("date")
+    @classmethod
+    def validate_date_not_in_future(cls, value: date_type) -> date_type:
+        if value > date_type.today():
+            raise ValueError("Match date cannot be in the future")
+        return value
 
 
-class MatchUpdate(MatchCreate):
-    pass
+class MatchUpdate(BaseModel):
+    country_id: int | None = None
+    league_id: int | None = None
+    season: str | None = None
+    stage: int | None = None
+    date: date_type | None = None
+    match_api_id: int | None = None
+    home_team_id: int | None = None
+    away_team_id: int | None = None
+
+    @field_validator("date")
+    @classmethod
+    def validate_date_not_in_future(
+        cls, birthday: date_type | None
+    ) -> date_type | None:
+        if birthday is not None and birthday > date_type.today():
+            raise ValueError("Birthday cannot be in the future")
+        return birthday
 
     # home team or away team or data can't be none or else we can't check dups
