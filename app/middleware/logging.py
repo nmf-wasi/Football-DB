@@ -12,4 +12,5 @@ async def logging_middleware(request: Request, call_next):
     logger.info(
         f"{request.method} {request.url.path} - {response.status_code} - {durantion:0.3f}s"
     )
+    
     return response

@@ -13,12 +13,15 @@ app = FastAPI()
 app.middleware("http")(logging_middleware)
 app.middleware("http")(rate_limitter)
 
+logger = logging.getLogger(__name__)
+
 
 # global exception handler and logging
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logging.error(
-        f"Unhandled error on {request.method} {request.url.path} : {exc}",
+    logger.error(
+        f"Unhandled error on {request.method} {request.url.path}: {exc}",
+        exc_info=True,
     )
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
